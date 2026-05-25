@@ -6,7 +6,7 @@ An optional gitignored config.local.yaml is merged on top for machine-local
 overrides.
 
 Usage:
-    from paths import PROJECT_DIR, DATA_DIR, RESULTS_DIR, FIGURE_DIR
+    from paths import PROJECT_DIR, DATA_DIR, WORKSPACE_DIR, RESULTS_DIR, FIGURE_DIR
 """
 from pathlib import Path
 import yaml
@@ -27,7 +27,8 @@ def _load_config():
 config = _load_config()
 
 # Primary directories — add more aliases here as config.yaml grows.
-DATA_DIR    = PROJECT_DIR / config["data_dir"]
-RESULTS_DIR = PROJECT_DIR / config["results_dir"]
-FIGURE_DIR  = PROJECT_DIR / config["figure_dir"]
-TESTS_DIR   = PROJECT_DIR / config["tests_dir"]
+DATA_DIR      = PROJECT_DIR / config["data_dir"]
+WORKSPACE_DIR = PROJECT_DIR / config["workspace_dir"]
+RESULTS_DIR   = PROJECT_DIR / config["results_dir"]
+FIGURE_DIR    = PROJECT_DIR / config["figure_dir"]
+TESTS_DIR     = PROJECT_DIR / config["tests_dir"]

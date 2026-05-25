@@ -21,7 +21,8 @@ config      <- .load_config()
 PROJECT_DIR <- normalizePath(".")
 
 # Primary directories — add more aliases here as config.yaml grows.
-DATA_DIR    <- file.path(PROJECT_DIR, config$data_dir)
-RESULTS_DIR <- file.path(PROJECT_DIR, config$results_dir)
-FIGURE_DIR  <- file.path(PROJECT_DIR, config$figure_dir)
-TESTS_DIR   <- file.path(PROJECT_DIR, config$tests_dir)
+DATA_DIR      <- file.path(PROJECT_DIR, config$data_dir)
+WORKSPACE_DIR <- file.path(PROJECT_DIR, config$workspace_dir)
+RESULTS_DIR   <- file.path(PROJECT_DIR, config$results_dir)
+FIGURE_DIR    <- file.path(PROJECT_DIR, config$figure_dir)
+TESTS_DIR     <- file.path(PROJECT_DIR, config$tests_dir)

@@ -21,9 +21,10 @@ if local.exists():
     with open(local) as _f:
         config.update(yaml.safe_load(_f) or {})
 
-DATA_DIR    = PROJECT_ROOT / config["data_dir"]
-RESULTS_DIR = PROJECT_ROOT / config["results_dir"]
-FIGURE_DIR  = PROJECT_ROOT / config["figure_dir"]
+DATA_DIR      = PROJECT_ROOT / config["data_dir"]
+WORKSPACE_DIR = PROJECT_ROOT / config["workspace_dir"]
+RESULTS_DIR   = PROJECT_ROOT / config["results_dir"]
+FIGURE_DIR    = PROJECT_ROOT / config["figure_dir"]
 
 
 rule all:

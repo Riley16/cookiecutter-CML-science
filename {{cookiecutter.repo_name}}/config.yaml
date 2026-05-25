@@ -8,14 +8,16 @@
 # create a gitignored config.local.yaml in the project root; the loaders
 # merge it on top of this file.
 
-# Primary directories (exposed as PROJECT_DIR, DATA_DIR, RESULTS_DIR, FIGURE_DIR)
-data_dir:    data
-results_dir: results
-figure_dir:  results/figures
-tests_dir:   tests
-
-# Intermediate results, separated from final figures/reports
-workspace_dir:      data/workspace
+# Primary directories (exposed as PROJECT_DIR, DATA_DIR, WORKSPACE_DIR,
+# RESULTS_DIR, FIGURE_DIR)
+#
+# Three-way split: data/ is read-only raw input; workspace/ holds
+# regenerable intermediate output; results/ holds final deliverables.
+data_dir:      data        # raw input, read-only from analysis code
+workspace_dir: workspace   # intermediate output, regenerable
+results_dir:   results
+figure_dir:    results/figures
+tests_dir:     tests
 
 # Standardized result summary JSONs (results_io.R / results_io.py)
 result_summary_dir: results/summary

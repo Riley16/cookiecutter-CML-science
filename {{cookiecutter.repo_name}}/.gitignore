@@ -8,3 +8,8 @@ config.local.yaml
 # Snakemake + smokescreen scratch
 .snakemake/
 .smokescreen/
+
+# Intermediate output (regenerable from data/ via the pipeline). The
+# directory itself stays (workspace/README.md is tracked).
+workspace/*
+!workspace/README.md

@@ -13,9 +13,10 @@
 - **Paths** — [config.yaml](config.yaml) is the single source of truth;
   [paths.py](paths.py) and [paths.R](paths.R) are the loaders. Override
   per-machine via a gitignored `config.local.yaml`.
-- **Output separation** — intermediate outputs go to `data/workspace/`;
-  final figures to `results/figures/`; standardized result JSONs to
-  `results/summary/`. Smokescreen runs go to `.smokescreen/` (gitignored).
+- **Output separation** — three sibling directories: `data/` (raw input,
+  read-only), `workspace/` (intermediate, regenerable), `results/` (final
+  deliverables — figures in `results/figures/`, standardized JSONs in
+  `results/summary/`). Smokescreen runs go to `.smokescreen/` (gitignored).
 - **Results tracking** — standardized JSON summaries via
   [results_io.R](results_io.R); one JSON per analysis in `results/summary/`.
 - **Final-figure manifest** — [results.yaml](results.yaml) lists paper
