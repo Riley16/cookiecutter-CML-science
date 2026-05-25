@@ -27,8 +27,27 @@ def _load_config():
 config = _load_config()
 
 # Primary directories — add more aliases here as config.yaml grows.
-DATA_DIR      = PROJECT_DIR / config["data_dir"]
-WORKSPACE_DIR = PROJECT_DIR / config["workspace_dir"]
-RESULTS_DIR   = PROJECT_DIR / config["results_dir"]
-FIGURE_DIR    = PROJECT_DIR / config["figure_dir"]
-TESTS_DIR     = PROJECT_DIR / config["tests_dir"]
+DATA_DIR           = PROJECT_DIR / config["data_dir"]
+WORKSPACE_DIR      = PROJECT_DIR / config["workspace_dir"]
+RESULTS_DIR        = PROJECT_DIR / config["results_dir"]
+FIGURE_DIR         = PROJECT_DIR / config["figure_dir"]
+RESULT_SUMMARY_DIR = PROJECT_DIR / config["result_summary_dir"]
+TESTS_DIR          = PROJECT_DIR / config["tests_dir"]
+
+
+# Smokescreen convention: when a script is invoked with --smokescreen,
+# isolate its outputs into a .smokescreen/ subfolder of each OUTPUT
+# directory so they never clobber full-run output. Wrap each output dir
+# at the call site:
+#
+#     from paths import WORKSPACE_DIR, smokescreen
+#     out_dir = smokescreen(WORKSPACE_DIR) if args.smokescreen else WORKSPACE_DIR
+#
+# Apply only to output dirs (workspace, results, figures, result_summary).
+# Never wrap read-only inputs (DATA_DIR) or TESTS_DIR.
+SMOKESCREEN_SUBDIR = ".smokescreen"
+
+
+def smokescreen(output_dir: Path) -> Path:
+    """Return the smokescreen-isolated variant of an output directory."""
+    return Path(output_dir) / SMOKESCREEN_SUBDIR
