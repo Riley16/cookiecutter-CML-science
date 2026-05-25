@@ -1,0 +1,24 @@
+# Project path registry — single source of truth.
+# Paths are relative to the project root and are joined with PROJECT_DIR
+# by paths.py / paths.R, which expose each key as an uppercase module-level
+# variable (e.g. data_dir -> DATA_DIR).
+#
+# Add new paths here and add a matching alias in paths.py / paths.R.
+# For machine-local overrides (different cluster, user-specific scratch),
+# create a gitignored config.local.yaml in the project root; the loaders
+# merge it on top of this file.
+
+# Primary directories (exposed as PROJECT_DIR, DATA_DIR, RESULTS_DIR, FIGURE_DIR)
+data_dir:    data
+results_dir: results
+figure_dir:  results/figures
+tests_dir:   tests
+
+# Intermediate results, separated from final figures/reports
+workspace_dir:      data/workspace
+
+# Standardized result summary JSONs (results_io.R / results_io.py)
+result_summary_dir: results/summary
+
+# Final-figure manifest (consumed by download_main_figures.py)
+# Listed in results.yaml alongside figure paths.

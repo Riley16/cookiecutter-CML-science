@@ -1,0 +1,209 @@
+# Development instructions for {{cookiecutter.project_name}}
+
+{{cookiecutter.description}}
+
+This file tells Claude Code (and any collaborator) the conventions this
+project follows. Update freely as the project evolves.
+
+## Project structure
+
+- `config.yaml` — project path registry; the single source of truth for
+  all paths. Add new keys here (see Configuration below).
+- `paths.py` / `paths.R` — thin loaders that expose `config.yaml` keys as
+  uppercase module-level variables under `PROJECT_DIR`.
+- `pyproject.toml` — Python package metadata. Install locally with
+  `pip install -e .`.
+- `snakefile` — captures the full pipeline for reproducibility once
+  individual scripts stabilize (see Workflow reproducibility).
+- `results.yaml` — manifest of "main" figures for the paper/report,
+  consumed by `download_main_figures.py`.
+- `results_io.R` — scientific results tracking library (standardized JSON
+  summaries per analysis).
+- `scripts/` — standalone analysis scripts. Each should be runnable
+  directly from the project root (`Rscript scripts/<name>.R`, `python
+  scripts/<name>.py`) and should write its outputs to the locations
+  declared in `config.yaml`.
+- `{{cookiecutter.package_name}}/` — importable Python utility code.
+- `tests/` — automated tests; see Testing.
+- `data/` — raw + analysis-ready inputs. Treat as read-only from analysis
+  scripts where possible.
+- `results/` — all analysis outputs. Intermediate outputs go to
+  `results/workspace/` (via `data/workspace` by default in config.yaml);
+  final figures to `results/figures/...`; standardized result JSONs to
+  `results/summary/`. Keep these three separated — see Output separation.
+
+## Configuration and paths
+
+`config.yaml` is the single source of truth for project paths. Everything
+else (Python scripts, R scripts, snakefile) reads from it. Never hard-code
+paths in analysis code.
+
+Adding a new path:
+1. Add a key to `config.yaml` (relative to project root).
+2. Add a matching uppercase alias in `paths.py` and `paths.R`:
+   ```python
+   # paths.py
+   MY_NEW_DIR = PROJECT_DIR / config["my_new_dir"]
+   ```
+3. Reference `MY_NEW_DIR` from Python scripts and `file.path(MY_NEW_DIR,
+   "foo.rds")` from R.
+
+Machine-local overrides (different cluster, user-specific scratch dir) go
+in a gitignored `config.local.yaml` at the project root; both loaders
+merge it on top of `config.yaml` automatically.
+
+## Output separation
+
+Keep intermediate results and final deliverables in separate directories:
+
+- **Intermediate** — `config["workspace_dir"]` (default `data/workspace/`):
+  cached model fits, per-subject RDS files, intermediate tables. Not meant
+  for human consumption; may be regenerated at any time.
+- **Final figures and reports** — `config["figure_dir"]` and thematic
+  subfolders (e.g. `results/figures/<analysis_topic>/`). Figures referenced
+  in papers or reports live here.
+- **Standardized result JSONs** — `config["result_summary_dir"]`, one JSON
+  per analysis script. See Results tracking.
+
+This split makes it easy to delete intermediates without touching
+deliverables, and makes `results.yaml` simple to maintain.
+
+## Development conventions
+
+- Implement one functional step at a time. After each step, print or
+  inspect a small example so the user can verify before moving on.
+- Keep code generation to under ~50 lines per edit when possible.
+- Iterate on "smokescreen" subsets of the input space (e.g., a few
+  subjects, a few events) before running the full pipeline. Flag
+  smokescreen mode explicitly (see CLI conventions). 
+    - Smokescreen run test outputs should be isolated from the full run output by appending a child folder subdirectory .smokescreen/ to each respective output directory variable.
+- Unit test all analyses with end-to-end simulated data. Design individual analysis scripts to consume the minimal data structure required for the analysis (e.g., behavioral data will often be compressed to a single CSV across subjects). Analysis simulations should generate data in the same format as the input data.
+- Statistical simulations should test a range of hypotheses, including the null and multiple values of the alternative hypothesis. Simulations should confirm parameter recovery and compute biases in estimates. Time all simulations and set all random seeds. Check how long a simulation takes with ~25 simulations as a smokescreen to check the simulation works. Default to ramping up the number of simulation runs (different random seeds) to up to 5000 random simulations or to the maximum that could run in 10 minutes.
+- Save figures in both PDF and PNG at high resolution (`ggsave(..., dpi
+  = 300)` or matplotlib `dpi=300`).
+- Prefer tidyverse/dplyr for R data wrangling.
+- Avoid recreating near-duplicate functions — factor shared behavior.
+- For UI or interactive outputs, verify behavior in the real environment
+  (browser, notebook) before declaring a task complete.
+
+## CLI conventions for analysis scripts
+
+Every standalone analysis script accepts the following flags where
+relevant (add a `parse_named_arg` helper in `{{cookiecutter.package_name}}/`
+or a shared `util.R` so every script uses the same parser):
+
+- `--smokescreen` — restrict to a small input subset for fast iteration;
+  write outputs to an isolated scratch location.
+- `--replot-only` — skip expensive computation and re-generate plots from
+  already-saved intermediates.
+- `--tag <name>` - analysis-variant flags — indicates which parameters should be fed into the analysis pipeline from config.yaml:run_parameters:<name>
+
+## Testing
+
+Automated tests live in `tests/`.
+
+- **R**: use `testthat`. Run a single file with
+  `Rscript -e 'testthat::test_file("tests/test_<name>.R")'` or the full
+  suite with `Rscript -e 'testthat::test_dir("tests")'`.
+- **Python**: use `pytest`. Run with `pytest tests/` from the project root.
+
+Write unit tests for any new statistical pipeline. For simulations
+(parameter recovery, power analyses): run >= 100 iterations, fix the
+random seed, parallelize across cores, and output a tqdm-style progress
+report. Design the pipeline function so the same call signature is used
+for simulated and empirical data.
+
+## Results tracking (standardized JSON)
+
+`results_io.R` is the IO library for reading/writing standardized
+statistical results to JSON. One JSON file per analysis script in
+`results/summary/` (see `result_summary_dir`).
+
+Canonical result types with constructors:
+
+- `make_ttest_result()`
+- `make_anova_result()`
+- `make_correlation_result()`
+- `make_regression_coef_result()`
+- `make_descriptive_result()`
+- `make_count_proportion_result()`
+
+Each constructor takes raw values (not R test objects) and validates
+against its schema. Example:
+
+```r
+source("results_io.R")
+result_file <- "results/summary/decoder_summary.json"
+init_result_file(result_file,
+                 description = "Decoder accuracy vs chance",
+                 conda_env = "r4.3")
+write_result(c("subject_classifier", "ttest_vs_chance"),
+             make_ttest_result(statistic = 3.21, df = 42, p_value = 0.002,
+                               alternative = "two.sided", method = "one_sample",
+                               effect_size = 0.49, effect_size_type = "cohens_d"),
+             file = result_file)
+```
+
+Conventions:
+
+- JSON stores full machine precision. Rounding/formatting happens only at
+  display time (LaTeX macros, print summaries).
+- Result keys are descriptive snake_case, e.g. `c("encoding_sme",
+  "hippocampus", "ttest_recalled_vs_not")`.
+- Only include results that are mentioned in the paper or a downstream
+  report. Mass results (e.g., 10000 voxelwise tests) are referenced by
+  file path, not inlined.
+- Each script owns its own JSON file — no cross-job locking needed.
+- Writes are atomic (temp file + rename).
+
+When adding a new analysis script that produces results:
+1. Add an entry to `config.yaml` under `result_files` (key: analysis
+   name, value: filename).
+2. Call `init_result_file()` at the top of the script.
+3. Call `write_result()` for each primary result.
+
+## Final-figure manifest + downloader
+
+`results.yaml` lists the figure paths that belong in the paper or report.
+`download_main_figures.py` reads that manifest and copies (or fetches via
+SSH) the listed files into a destination folder — handy for grabbing
+every "main" figure at once without hunting through `results/figures/`.
+
+Usage:
+```bash
+python download_main_figures.py                  # copy into results/figures/main/
+python download_main_figures.py ~/Desktop/figs   # copy into a custom folder
+```
+
+Keep `results.yaml` lean — only finalized figures destined for the paper
+or top-level report. Working/exploratory plots stay out of it.
+
+## Paper writing (optional)
+
+For LaTeX papers, anchor every reported statistic to its JSON source:
+
+```latex
+Classifier accuracy was significantly above chance
+($t(42) = 3.21$, $p = .002$, $d = 0.49$). % @result: decoder_summary.subject_classifier.ttest_vs_chance
+```
+
+The key path is `<file_name>.<nested_keys>` (dots) mapping directly to
+the result JSON under `results/summary/`. A review protocol (compare
+LaTeX values against current JSON, flag significance changes or
+>5% deltas) can run whenever results are recomputed.
+
+## Workflow reproducibility (snakemake)
+
+The `snakefile` captures the full pipeline for reproducibility. The
+project lifecycle:
+
+1. Develop each analysis as a standalone script in `scripts/`, called
+   directly (e.g. `Rscript scripts/run_foo.R`).
+2. Once the script's CLI and outputs stabilize, wrap it in a snakefile
+   rule so the full pipeline can be rebuilt from scratch.
+3. The snakefile reads paths from `config.yaml` so rule outputs stay
+   consistent with `paths.py` / `paths.R`.
+
+Not every script needs to be in the snakefile from day one — only add
+rules once interfaces are stable. The goal is reproducibility of the
+final pipeline, not tracking every exploratory run.

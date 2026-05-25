@@ -1,1 +1,10 @@
 *.egg-info
+__pycache__/
+*.pyc
+
+# Machine-local path overrides (see CLAUDE.md -> Configuration)
+config.local.yaml
+
+# Snakemake + smokescreen scratch
+.snakemake/
+.smokescreen/

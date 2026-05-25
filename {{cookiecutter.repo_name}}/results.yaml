@@ -1,0 +1,13 @@
+# Manifest of "main" figures for the paper or report. Paths are RELATIVE
+# to the project root and are consumed by download_main_figures.py. Add or
+# remove entries here to change what gets copied.
+#
+# Each section is purely for organization; the script flattens all entries
+# and copies every listed file.
+
+project_root: /ABSOLUTE/PATH/TO/THIS/PROJECT
+
+sections:
+  # example_section_name:
+  #   - results/figures/<subdir>/<figure_name>.png
+  #   - results/figures/<subdir>/<figure_name>.pdf

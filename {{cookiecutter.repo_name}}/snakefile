@@ -1,0 +1,31 @@
+# Snakemake workflow for {{cookiecutter.project_name}}.
+#
+# Paths come from config.yaml (same file paths.py / paths.R read), so adding
+# a new output directory is a one-line change there plus an alias in paths.py
+# / paths.R.
+#
+# Development flow: iterate each analysis as a standalone script first (see
+# scripts/). Once the script's CLI stabilizes, wrap it in a rule here.
+#
+# Run:
+#   snakemake --cores 1 all
+
+from pathlib import Path
+import yaml
+
+PROJECT_ROOT = Path(workflow.basedir)
+with open(PROJECT_ROOT / "config.yaml") as _f:
+    config = yaml.safe_load(_f)
+local = PROJECT_ROOT / "config.local.yaml"
+if local.exists():
+    with open(local) as _f:
+        config.update(yaml.safe_load(_f) or {})
+
+DATA_DIR    = PROJECT_ROOT / config["data_dir"]
+RESULTS_DIR = PROJECT_ROOT / config["results_dir"]
+FIGURE_DIR  = PROJECT_ROOT / config["figure_dir"]
+
+
+rule all:
+    input:
+        # Final outputs of the pipeline go here.
