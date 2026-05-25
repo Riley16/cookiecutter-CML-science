@@ -91,6 +91,7 @@ maintain (final figures only).
 - Avoid recreating near-duplicate functions — factor shared behavior.
 - For UI or interactive outputs, verify behavior in the real environment
   (browser, notebook) before declaring a task complete.
+- Manage project envs via **pixi**. Run all Python and R commands through pixi so each worktree has an isolated, reproducible install. From the repo root: `pixi run python ...` / `pixi run Rscript ...` for one-off commands; `pixi run test` for the unittest suite; `pixi shell` to enter a subshell with the env activated and `.env` loaded. On a fresh checkout, bootstrap with `bash setup.sh` (installs pixi, materializes the env from `pixi.lock`, repairs Box-wiped hidden files).
 
 ## CLI conventions for analysis scripts
 
