@@ -24,3 +24,7 @@ result_summary_dir: results/summary
 
 # Final-figure manifest (consumed by download_main_figures.py)
 # Listed in results.yaml alongside figure paths.
+
+# analysis pipeline global run parameters
+tag:
+  default: config/default.yaml

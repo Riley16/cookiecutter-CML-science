@@ -102,7 +102,7 @@ or a shared `util.R` so every script uses the same parser):
   write outputs to an isolated scratch location.
 - `--replot-only` — skip expensive computation and re-generate plots from
   already-saved intermediates.
-- `--tag <name>` - analysis-variant flags — indicates which parameters should be fed into the analysis pipeline from config.yaml:run_parameters:<name>
+- `--tag <name>` - analysis-variant flags — indicates which parameters should be fed into the analysis pipeline from config.yaml:tag:<path_to_tag_parameters.yaml> . Run config parameter files belong in config/ .
 
 ## Testing
 
@@ -118,6 +118,12 @@ Write unit tests for any new statistical pipeline. For simulations
 random seed, parallelize across cores, and output a tqdm-style progress
 report. Design the pipeline function so the same call signature is used
 for simulated and empirical data.
+
+Modularize simulated-data generators by **data type** (behavioral,
+neural, imaging, …) so one generator can feed every analysis whose input
+has that shape. Tests should compose their fixtures from these
+generators rather than hand-rolling one-off data; this also keeps
+simulated data drift-free from the empirical input format.
 
 ## Results tracking (standardized JSON)
 
@@ -156,17 +162,34 @@ Conventions:
   display time (LaTeX macros, print summaries).
 - Result keys are descriptive snake_case, e.g. `c("encoding_sme",
   "hippocampus", "ttest_recalled_vs_not")`.
-- Only include results that are mentioned in the paper or a downstream
-  report. Mass results (e.g., 10000 voxelwise tests) are referenced by
-  file path, not inlined.
 - Each script owns its own JSON file — no cross-job locking needed.
 - Writes are atomic (temp file + rename).
+- **Schema rules**: every leaf node must have a `_type` field matching a
+  known schema (`ttest`, `anova`, …). `_metadata` is reserved at the top
+  level for run-level info (description, conda env, timestamp). The
+  hierarchy between top-level `_metadata` and the leaves is free-form
+  per analysis.
 
 When adding a new analysis script that produces results:
 1. Add an entry to `config.yaml` under `result_files` (key: analysis
    name, value: filename).
 2. Call `init_result_file()` at the top of the script.
 3. Call `write_result()` for each primary result.
+
+### Combining per-script JSONs
+
+`combine_results()` walks every JSON listed in `result_files` and writes
+a single rollup at `results/summary/all_results.json`. Downstream
+consumers (paper builders, dashboards) read that one file rather than
+discovering per-script JSONs.
+
+### Testing the IO library
+
+Ship a `tests/test_results_io.R` (or `.py`) suite that exercises every
+constructor and the schema validator. Run with
+`Rscript -e 'testthat::test_file("tests/test_results_io.R")'`. Treat
+`results_io` as production code — broken constructors silently corrupt
+the rollup.
 
 ## Final-figure manifest + downloader
 
@@ -177,8 +200,7 @@ every "main" figure at once without hunting through `results/figures/`.
 
 Usage:
 ```bash
-python download_main_figures.py                  # copy into results/figures/main/
-python download_main_figures.py ~/Desktop/figs   # copy into a custom folder
+python download_main_figures.py ~/Desktop/figs   # copy into a custom folder not inside the project folder
 ```
 
 Keep `results.yaml` lean — only finalized figures destined for the paper
@@ -194,9 +216,32 @@ Classifier accuracy was significantly above chance
 ```
 
 The key path is `<file_name>.<nested_keys>` (dots) mapping directly to
-the result JSON under `results/summary/`. A review protocol (compare
-LaTeX values against current JSON, flag significance changes or
->5% deltas) can run whenever results are recomputed.
+the result JSON under `results/summary/`. A single sentence may carry
+multiple `@result:` anchors if it reports multiple values.
+
+### Review protocol (run after recomputing results)
+
+1. Find every `% @result:` comment across the `.tex` files.
+2. For each anchor, look up the current value in the corresponding
+   result JSON under `results/summary/`.
+3. Compare each JSON field against the value written in the surrounding
+   LaTeX.
+4. Summarize all changes. For each changed result, show old vs new
+   side by side.
+5. Flag explicitly:
+   - Any value that changed by more than 5%.
+   - Any result whose significance crossed `p = .05` in either direction.
+   - Any surrounding text that no longer matches the empirical result
+     (e.g. "significantly above chance" but `p > .05`; reversed
+     direction).
+6. Do **not** modify the LaTeX until the user has reviewed and approved
+   each change. Present changes one at a time or in small batches.
+
+### Inserting a new result
+
+When adding a result not yet in the paper: write the LaTeX text plus
+the matching `% @result:` anchor, then present the insertion for review
+before committing.
 
 ## Workflow reproducibility (snakemake)
 
@@ -213,3 +258,47 @@ project lifecycle:
 Not every script needs to be in the snakefile from day one — only add
 rules once interfaces are stable. The goal is reproducibility of the
 final pipeline, not tracking every exploratory run.
+
+### Cluster (SLURM) operations
+
+- **Executor plugin**: install `snakemake-executor-plugin-slurm`
+  separately from snakemake itself; that enables `--executor slurm`.
+- **Wrapper-rule fan-out**: for large per-subject/per-fold sweeps,
+  submit fan-out jobs via `sbatch` from inside a single wrapper rule
+  rather than expanding to one snakemake rule per leaf. Keeps the DAG
+  small (e.g. 6 wrapper jobs instead of 1500+ per-fit jobs) and the
+  progress log readable.
+- **R rules**: invoke R via its full env path
+  (`/path/to/envs/<env>/bin/Rscript`) passed through `params`, never
+  via `conda activate`. PATH from `conda activate` is not reliably set
+  on compute nodes.
+- **`runtime` is mandatory** on every SLURM rule (e.g. `runtime: "24h"`).
+  Unbounded jobs interfere with the scheduler.
+- **NFS-tolerant polling**: cluster filesystems lag behind job state;
+  default polling is too tight. Recipe:
+  ```
+  snakemake \
+    --executor slurm --jobs 200 --keep-going \
+    --slurm-init-seconds-before-status-checks 1 \
+    --seconds-between-status-checks 5 \
+    --latency-wait 30 \
+    2>&1 | tee snakemake.out
+  ```
+- **Long runs**: wrap in `nohup ... &`, `screen`, or `tmux` so a
+  dropped SSH connection doesn't kill the run.
+- **Local-only iteration** (no SLURM submission — fastest path for
+  debugging a single target):
+  ```
+  snakemake --jobs 1 --nolock --rerun-incomplete <target>
+  ```
+
+### Smokescreen overlay (full-DAG smoke test)
+
+Per-script `--smokescreen` (see CLI conventions) is for iterating on a
+single script. To smoke-test the **whole pipeline** end-to-end on a
+small subset, keep a `config_smokescreen.yaml` overlay alongside
+`config.yaml` that redirects output dirs to scratch and restricts the
+input set (subjects, sessions, …) to a handful of items. Run with
+`snakemake --configfile config_smokescreen.yaml ...` for a fast
+DAG-wide reproducibility check that exercises every rule without
+touching full-run output.

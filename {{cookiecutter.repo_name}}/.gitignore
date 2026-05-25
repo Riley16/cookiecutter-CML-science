@@ -1,6 +1,10 @@
 *.egg-info
 __pycache__/
 *.pyc
+.pixi
+.vscode
+.DS_Store
+.ipynb_checkpoints
 
 # Machine-local path overrides (see CLAUDE.md -> Configuration)
 config.local.yaml
